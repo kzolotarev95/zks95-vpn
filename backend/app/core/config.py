@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", hide_input_in_errors=True)
 
     environment: Literal["development", "test", "production"] = "development"
     database_url: str = "postgresql+psycopg://zks95:local-only@postgres:5432/zks95"
@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     trusted_hosts: list[str] = ["localhost", "127.0.0.1", "testserver", "api"]
     enable_docs: bool = True
     rate_limit_enabled: bool = True
+    app_encryption_key: str = ""
+    bot_service_token: str = ""
+    api_internal_url: str = "http://api:8000"
 
     @model_validator(mode="after")
     def production_settings(self) -> "Settings":
@@ -29,6 +32,8 @@ class Settings(BaseSettings):
                 raise ValueError("Production requires explicit TRUSTED_HOSTS")
             if not self.rate_limit_enabled:
                 raise ValueError("Production requires rate limiting")
+            if not self.app_encryption_key:
+                raise ValueError("Production requires APP_ENCRYPTION_KEY")
         return self
 
 

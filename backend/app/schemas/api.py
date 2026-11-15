@@ -28,7 +28,7 @@ class ORMModel(BaseModel):
 
 class UserOut(ORMModel):
     id: UUID
-    email: str
+    email: str | None
     created_at: datetime
 
 

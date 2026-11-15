@@ -10,6 +10,6 @@ down:
 test:
 	python -m pytest -q
 lint:
-	ruff check backend migrations scripts/validate-env.py
-	ruff format --check backend migrations scripts/validate-env.py
+	ruff check backend migrations scripts
+	ruff format --check backend migrations scripts
 	cd apps/web && npm run lint && npm run typecheck

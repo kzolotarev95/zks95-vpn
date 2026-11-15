@@ -41,6 +41,7 @@ if [[ ! -f .env ]]; then
     exit 1
   fi
 fi
+python3 scripts/ensure-secrets.py
 require_env
 chmod 600 .env
 "${COMPOSE[@]}" config --quiet
@@ -77,5 +78,6 @@ printf '%s\n' "$MODE" > .deployment-mode
 bash scripts/health-check.sh
 "${GIT[@]}" rev-parse HEAD > .deployed-commit
 echo "Installed the current development milestone. Site and account: $(sed -n 's/^PUBLIC_URL=//p' .env)"
-echo "Admin, Telegram, Billing and VPN nodes are not implemented yet. No VPN access is sold."
+echo "Admin: /admin. Create access: docker compose exec api python -m app.cli admin-create --email YOUR_EMAIL"
+echo "Configure the Telegram bot in /admin. Billing and VPN nodes are not implemented yet."
 echo "For HTTPS setup see docs/DEPLOYMENT.md."

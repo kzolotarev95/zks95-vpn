@@ -13,7 +13,11 @@ def get_current_session(request: Request, db: Session = Depends(get_db)) -> User
     token = request.cookies.get(COOKIE_NAME)
     if not token or len(token) > 256:
         raise HTTPException(401, "Необходим вход в аккаунт")
-    session = db.scalar(select(UserSession).where(UserSession.token_hash == token_digest(token)))
+    session = db.scalar(
+        select(UserSession).where(
+            UserSession.token_hash == token_digest(token), UserSession.purpose == "user"
+        )
+    )
     if session is None or as_utc(session.expires_at) <= utcnow():
         raise HTTPException(401, "Сессия истекла")
     return session

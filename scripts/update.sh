@@ -30,11 +30,13 @@ on_error() {
 }
 trap on_error ERR
 "${GIT[@]}" merge --ff-only origin/main
+python3 scripts/ensure-secrets.py
 require_env
 "${COMPOSE[@]}" config --quiet
 "${COMPOSE[@]}" build --pull
 # Stop request handlers before schema changes; postgres and redis remain running.
 "${COMPOSE[@]}" stop nginx web api
+"${COMPOSE[@]}" stop bot
 "${COMPOSE[@]}" run --rm --no-deps api alembic upgrade head
 "${COMPOSE[@]}" up -d --wait --wait-timeout 180
 bash scripts/health-check.sh

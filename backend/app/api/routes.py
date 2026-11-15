@@ -30,6 +30,7 @@ from app.schemas.api import (
     SubscriptionOut,
     UserOut,
 )
+from app.services.orders import place_order
 
 router = APIRouter(prefix="/api/v1")
 
@@ -94,7 +95,9 @@ def login(
 ) -> User:
     rate_limit(request, "login", 10, 300)
     user = db.scalar(select(User).where(User.email == body.email))
-    verified = verify_password(body.password, user.password_hash if user else dummy_password_hash)
+    verified = verify_password(
+        body.password, (user.password_hash if user else None) or dummy_password_hash
+    )
     if not user or not verified or not user.is_active:
         raise HTTPException(401, "Неверный адрес или пароль")
     start_session(db, user, response)
@@ -135,41 +138,7 @@ def create_order(
     db: Session = Depends(get_db),
 ) -> Order:
     rate_limit(request, "orders", 30, 60)
-    existing = db.scalar(
-        select(Order).where(Order.user_id == user.id, Order.idempotency_key == idempotency_key)
-    )
-    if existing:
-        if existing.plan_id != body.plan_id:
-            raise HTTPException(409, "Ключ уже использован для другого тарифа")
-        return existing
-    plan = db.scalar(select(Plan).where(Plan.id == body.plan_id, Plan.is_active.is_(True)))
-    if not plan:
-        raise HTTPException(404, "Тариф недоступен")
-    order = Order(
-        user_id=user.id,
-        plan_id=plan.id,
-        idempotency_key=idempotency_key,
-        amount_minor=plan.price_minor,
-        currency=plan.currency,
-        plan_name=plan.name,
-        duration_days=plan.duration_days,
-        device_limit=plan.device_limit,
-        status="pending",
-    )
-    db.add(order)
-    try:
-        db.flush()
-        db.add(AuditLog(actor_id=user.id, action="order.create", target_id=str(order.id)))
-        db.commit()
-    except IntegrityError as exc:
-        db.rollback()
-        existing = db.scalar(
-            select(Order).where(Order.user_id == user.id, Order.idempotency_key == idempotency_key)
-        )
-        if existing and existing.plan_id == body.plan_id:
-            return existing
-        raise HTTPException(409, "Конфликт создания заказа") from exc
-    return order
+    return place_order(db, user, body.plan_id, idempotency_key)
 
 
 @router.get("/orders", response_model=list[OrderOut], tags=["orders"])

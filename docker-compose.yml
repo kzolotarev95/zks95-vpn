@@ -47,6 +47,8 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       TRUSTED_HOSTS: ${TRUSTED_HOSTS:-["localhost","127.0.0.1","api"]}
       ENABLE_DOCS: ${ENABLE_DOCS:-true}
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:-}
+      BOT_SERVICE_TOKEN: ${BOT_SERVICE_TOKEN:-}
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -54,6 +56,26 @@ services:
     read_only: true
     tmpfs: ["/tmp:size=32m,mode=1777"]
     cap_drop: [ALL]
+
+  bot:
+    <<: *service
+    image: zks95-api:${APP_VERSION:-local}
+    command: ["python", "-m", "app.bot"]
+    environment:
+      API_INTERNAL_URL: http://api:8000
+      BOT_SERVICE_TOKEN: ${BOT_SERVICE_TOKEN:-}
+    depends_on:
+      api: { condition: service_healthy }
+    networks: [frontend]
+    read_only: true
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    cap_drop: [ALL]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import pathlib,time; assert time.time()-float(pathlib.Path('/tmp/zks95-bot-health').read_text()) < 45"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 4
 
   web:
     <<: *service

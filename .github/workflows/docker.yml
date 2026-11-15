@@ -16,6 +16,7 @@ jobs:
           cp .env.example .env
           password="$(openssl rand -hex 32)"
           sed -i "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$password/" .env
+          python3 scripts/ensure-secrets.py
           python3 scripts/validate-env.py
           docker compose config --quiet
           DOMAIN=vpn.test docker compose -f docker-compose.yml -f docker-compose.prod.yml config --quiet

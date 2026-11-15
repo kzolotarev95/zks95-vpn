@@ -4,6 +4,8 @@ os.environ["ENVIRONMENT"] = "test"
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["RATE_LIMIT_ENABLED"] = "false"
 os.environ["PUBLIC_URL"] = "http://testserver"
+os.environ["APP_ENCRYPTION_KEY"] = "eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHg="
+os.environ["BOT_SERVICE_TOKEN"] = "test-service-token-used-only-in-isolated-tests"
 
 import pytest
 from app.core.database import get_db

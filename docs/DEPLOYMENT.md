@@ -1,6 +1,6 @@
 # Установка текущего этапа
 
-Это окружение разработки control plane: сайт, кабинет, API, PostgreSQL, Redis и nginx. Telegram, платежи и VPN-подключения ещё не реализованы. На чистой Ubuntu установщик пока не проверен вручную; автоматический Docker smoke test находится в CI.
+Окружение control plane: сайт, кабинет, `/admin`, API, PostgreSQL, Redis, nginx и Telegram worker. Платежи и VPN-подключения ещё не реализованы. [Создание администратора, обновление с первой версии и подключение Telegram](ADMIN.md). Системная установка на чистую Ubuntu пока не проверена вручную; Docker smoke test находится в CI.
 
 ## Ubuntu 22.04 / 24.04+
 

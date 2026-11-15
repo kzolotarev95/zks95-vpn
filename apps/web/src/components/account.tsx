@@ -6,6 +6,7 @@ import { ArrowRight, Check, Clock3, LogOut, ShieldCheck } from "lucide-react";
 import { api, ApiError, type Order, type Plan, type Subscription, type User } from "@/lib/api";
 import { money } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { TelegramLink } from "@/components/telegram-link";
 
 const statuses: Record<Order["status"], string> = { pending: "Ожидает оплаты", paid: "Оплачен", cancelled: "Отменён", refunded: "Возврат" };
 
@@ -81,6 +82,7 @@ export function Account() {
   if (!user) return <div className="auth-layout"><section className="auth-intro"><div className="eyebrow">ЛИЧНЫЙ КАБИНЕТ</div><h1>Всё ваше.<br /><span>В одном месте.</span></h1><p>Подписки, заказы и управление доступом.<br />Войдите, чтобы продолжить.</p><ShieldCheck size={96} strokeWidth={0.7} /></section><section className="auth-card"><div className="auth-tabs"><button className={!register ? "active" : ""} onClick={() => { setRegister(false); setError(""); }}>Войти</button><button className={register ? "active" : ""} onClick={() => { setRegister(true); setError(""); }}>Создать аккаунт</button></div><h2>{register ? "Начнём знакомство" : "С возвращением"}</h2><p>{register ? "Создайте ваше личное пространство." : "Рады видеть вас снова."}</p><form onSubmit={authenticate}><label>Email<input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={254} placeholder="you@example.com" /></label><label>Пароль<input type="password" required minLength={12} maxLength={128} autoComplete={register ? "new-password" : "current-password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Не менее 12 символов" /></label>{error && <p className="form-error" role="alert">{error}</p>}<Button type="submit" disabled={busy}>{busy ? "Подождите…" : register ? "Создать аккаунт" : "Войти в кабинет"}<ArrowRight size={17} /></Button></form><p className="auth-note">Сервис в разработке. Оплата пока закрыта.</p></section></div>;
 
   return <>
+    <TelegramLink />
     <div className="account-heading"><div><div className="eyebrow">ВАШЕ ПРОСТРАНСТВО</div><h1>Личный кабинет<span>.</span></h1><p>{user.email}</p></div><Button variant="outline" onClick={logout} disabled={busy}><LogOut size={16} /> Выйти</Button></div>
     <div className="account-banner"><ShieldCheck size={25} /><div><strong>Сначала — подготовка. Затем — подключение.</strong><p>Вы уже можете сохранить заказ. Платежи и VPN-доступ откроются после проверки сервиса.</p></div><span className="tag">РАННИЙ ДОСТУП</span></div>
     {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="form-success" role="status"><Check size={17} />{notice}</p>}
