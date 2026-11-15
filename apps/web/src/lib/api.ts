@@ -9,6 +9,7 @@ export type Order = {
 };
 export type Subscription = {
   id: string; plan_name: string; status: string; device_limit: number; expires_at: string;
+  connection_url?: string | null; provider_name?: string | null; vpn_status?: string | null; used_bytes?: number | null;
 };
 
 export class ApiError extends Error {
@@ -23,7 +24,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new ApiError(response.status, typeof body.detail === "string" ? body.detail :
-      response.status === 422 ? "Проверьте email и пароль (от 12 символов)." : "Не удалось выполнить запрос.");
+      response.status === 422 ? "Проверьте email и пароль (от 5 символов)." : "Не удалось выполнить запрос.");
   }
   return response.status === 204 ? undefined as T : response.json();
 }

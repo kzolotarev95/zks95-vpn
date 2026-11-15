@@ -66,8 +66,9 @@ def render_section(action: str, snapshot: dict) -> str:
         return (
             "ZKS95 VPN · личное пространство\n\n"
             f"Активных подписок: {len(active)}\nЗаказов: {len(snapshot['orders'])}\n\n"
-            "Платформа готовится к запуску. Сейчас можно выбрать тариф и сохранить заказ. "
-            "Оплата и выдача VPN-доступа ещё закрыты."
+            "Платформа готовится к запуску. Можно выбрать тариф и сохранить заказ. "
+            "Оплата пока не подключена; "
+            "VPN-доступ выдаётся после настройки панели и подтверждения заказа."
         )
     if action == "subs":
         if not subscriptions:
@@ -79,13 +80,22 @@ def render_section(action: str, snapshot: dict) -> str:
             for sub in subscriptions[:20]
         )
     if action == "connections":
-        return "🔐 VPN-конфигурации появятся после запуска VPN-нод и подтверждения оплаты."
+        links = [sub for sub in active if sub.get("connection_url")]
+        if not links:
+            return (
+                "🔐 Доступных подключений пока нет. После активации здесь появится ссылка подписки."
+            )
+        return "🔐 Мои подключения\n\n" + "\n\n".join(
+            f"{sub['plan_name']} · до {sub['expires_at'][:10]}\n{sub['connection_url']}"
+            for sub in links[:10]
+        )
     if action == "locations":
         return "🌍 Доступные локации появятся после подключения и проверки VPN-серверов."
     if action == "stats":
+        used_bytes = sum(int(sub.get("used_bytes") or 0) for sub in active)
         return (
             f"📊 Ваш аккаунт\n\nЗаказов в последней истории: {len(snapshot['orders'])}\n"
-            f"Активных подписок: {len(active)}\n\nУчёт VPN-трафика ещё не подключён."
+            f"Активных подписок: {len(active)}\nИспользовано VPN-трафика: {used_bytes} байт"
         )
     if action == "ref":
         return "🎁 Реферальная программа ещё готовится. Начислений и приглашений пока нет."
@@ -129,7 +139,10 @@ def dispatcher(backend: Backend, runtime: dict) -> Dispatcher:
         await query.answer()
         action = query.data or "home"
         try:
-            snapshot = await backend.call("GET", f"/users/{query.from_user.id}/snapshot")
+            if action == "connections":
+                snapshot = await backend.call("POST", f"/users/{query.from_user.id}/refresh")
+            else:
+                snapshot = await backend.call("GET", f"/users/{query.from_user.id}/snapshot")
             if action == "plans":
                 buttons = [
                     [

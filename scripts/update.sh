@@ -38,6 +38,7 @@ require_env
 "${COMPOSE[@]}" stop nginx web api
 "${COMPOSE[@]}" stop bot
 "${COMPOSE[@]}" run --rm --no-deps api alembic upgrade head
+"${COMPOSE[@]}" run --rm --no-deps api python -m app.cli admin-bootstrap
 "${COMPOSE[@]}" up -d --wait --wait-timeout 180
 bash scripts/health-check.sh
 "${GIT[@]}" rev-parse HEAD > .deployed-commit

@@ -51,7 +51,7 @@ if [[ "$MODE" == production ]]; then
   # shellcheck disable=SC2016
   "${COMPOSE[@]}" run --rm --no-deps --entrypoint sh nginx -ec \
     'test -r "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" && test -r "/etc/letsencrypt/live/$DOMAIN/privkey.pem"' || {
-      echo "nginx uid 101 needs readable certificates. See docs/DEPLOYMENT.md." >&2; exit 1;
+      echo "nginx cannot read the mounted certificates. See docs/DEPLOYMENT.md." >&2; exit 1;
     }
 fi
 # Docker checks port availability on start. Preflight detects listeners before any DB changes.
@@ -73,11 +73,12 @@ PY
 "${COMPOSE[@]}" up -d --wait postgres redis
 "${COMPOSE[@]}" run --rm --no-deps api alembic upgrade head
 "${COMPOSE[@]}" run --rm --no-deps api python -m app.cli seed
+"${COMPOSE[@]}" run --rm --no-deps api python -m app.cli admin-bootstrap
 "${COMPOSE[@]}" up -d --wait --wait-timeout 180
 printf '%s\n' "$MODE" > .deployment-mode
 bash scripts/health-check.sh
-"${GIT[@]}" rev-parse HEAD > .deployed-commit
+if [[ -d .git ]]; then "${GIT[@]}" rev-parse HEAD > .deployed-commit; fi
 echo "Installed the current development milestone. Site and account: $(sed -n 's/^PUBLIC_URL=//p' .env)"
-echo "Admin: /admin. Create access: docker compose exec api python -m app.cli admin-create --email YOUR_EMAIL"
-echo "Configure the Telegram bot in /admin. Billing and VPN nodes are not implemented yet."
+echo "Admin: /admin. First installation: admin / admin. Existing administrators are preserved."
+echo "Configure Telegram and VPN panels in /admin. Automatic billing is not enabled yet."
 echo "For HTTPS setup see docs/DEPLOYMENT.md."

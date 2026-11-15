@@ -18,17 +18,17 @@
 - Ubuntu install / update / health-check / uninstall, PostgreSQL backup и план восстановления. Удаление не удаляет пользовательские volumes.
 - GitHub Actions: Python 3.13 / PostgreSQL, lint, TypeScript, Next.js build, миграции, Gitleaks, Docker smoke test. Отдельный workflow публикации образов GHCR по тегам; релизов ещё нет.
 
-Добавлены `/admin`, TOTP 2FA, отдельные сессии, RBAC, сводка, пользователи, тарифы, заказы, подписки, аудит и настройки Telegram. aiogram worker поддерживает аккаунты, меню, тарифы, заказы и привязку сайта к Telegram. Токен и секреты 2FA шифруются Fernet. [Создание администратора и подключение бота](ADMIN.md).
+Добавлены `/admin`, отдельные административные сессии, RBAC, сводка, пользователи, тарифы, заказы, подписки, аудит и настройки Telegram. При установке создаётся `admin/admin`, пароль можно сменить в панели; TOTP подключается дополнительно. aiogram worker поддерживает аккаунты, меню, тарифы, заказы и привязку сайта к Telegram. Добавлены зашифрованные подключения к 3x-ui и Remnawave, выдача реального клиента и сохранение ссылки подписки. [Создание администратора, VPN-панели и подключение бота](ADMIN.md).
 
 Не реализованы: Mini App, ЮKassa / Stars и чеки, VPN Node Agent и протоколы, устройства, рефералы, промокоды, уведомления, Celery и мониторинг. Подтверждение email и восстановление пароля также впереди.
 
 ## Проверки
 
-Для этапа администратора / Telegram локально проходят 33 теста: 2FA replay, RBAC, отзыв сессий, шифрование токена, одноразовые ссылки, handlers aiogram, миграция старых пользователей / сессий и сохранение ключей при повторном обновлении. Проверены Ruff, TypeScript, ESLint и production build. В браузере: вход с 2FA, изменение цены, аудит и настройки Telegram. Настоящего токена Telegram в среде разработки нет; live-соединение проверяется владельцем после настройки.
+Для этапа администратора / Telegram / VPN-панелей локально проходят 40 тестов: 2FA replay, RBAC, отзыв сессий, admin/admin без OTP, смена пароля, шифрование токена, одноразовые ссылки, handlers aiogram, адаптеры 3x-ui / Remnawave, повторная выдача после потерянного ответа, отзыв клиента и истечение срока, миграция старых пользователей / сессий и сохранение ключей при повторном обновлении. Проверены Ruff, TypeScript, ESLint и production build. Настоящие панели и токен Telegram проверяются владельцем после настройки.
 
-Локально (Windows / Python 3.12 / Node 24): 16 backend-тестов, Ruff lint / format, миграции upgrade → check → downgrade → upgrade и повторный seed на SQLite, TypeScript / ESLint, production Next.js build, npm audit (0 уязвимостей), синтаксис Bash. В браузере проверены регистрация → выбор тарифа → сохранение заказа → перезагрузка → выход → повторный вход.
+Локально (Windows / Python 3.12 / Node 24): 40 backend-тестов, Ruff lint / format, миграции upgrade → check → downgrade → upgrade и повторный seed на SQLite, TypeScript / ESLint, production Next.js build, npm audit (0 уязвимостей), синтаксис Bash. В браузере проверены регистрация → выбор тарифа → сохранение заказа → перезагрузка → выход → повторный вход.
 
-В GitHub Actions также прошли backend-тесты на Python 3.13 / PostgreSQL 17, миграции и полный Docker Compose smoke test: сборка API и web, старт пяти контейнеров, healthchecks, чтение каталога из PostgreSQL и загрузка сайта через nginx. Установка системных пакетов на чистую Ubuntu VPS, production HTTPS и реальная VPN-связь пока не подтверждены.
+В GitHub Actions также прошли backend-тесты на Python 3.13 / PostgreSQL 17, миграции и полный Docker Compose smoke test: сборка API и web, старт шести контейнеров, healthchecks, чтение каталога из PostgreSQL и загрузка сайта через nginx. Установка системных пакетов на чистую Ubuntu VPS, production HTTPS и реальная VPN-связь пока не подтверждены.
 
 ## Быстрый запуск на Ubuntu
 

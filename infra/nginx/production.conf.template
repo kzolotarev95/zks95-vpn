@@ -2,6 +2,7 @@ server {
     listen 8080;
     server_name ${DOMAIN};
     server_tokens off;
+    location ^~ /.well-known/acme-challenge/ { root /var/www/acme; }
     location = /health { return 200 'ok'; }
     location / { return 301 https://${DOMAIN}$request_uri; }
 }

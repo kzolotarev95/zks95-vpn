@@ -1,13 +1,24 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, SecretStr
 
-from app.schemas.api import Credentials, ORMModel, UserOut
+from app.schemas.api import ORMModel, UserOut
 
 
-class AdminCredentials(Credentials):
-    otp: str = Field(pattern=r"^[0-9]{6}$")
+class AdminCredentials(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    login: str = Field(
+        min_length=1, max_length=254, validation_alias=AliasChoices("login", "email")
+    )
+    password: str = Field(min_length=5, max_length=128)
+    otp: str | None = Field(default=None, pattern=r"^[0-9]{6}$")
+
+
+class PasswordChange(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=5, max_length=128)
 
 
 class AdminProfile(UserOut):
@@ -24,6 +35,7 @@ class PlanWrite(BaseModel):
     duration_days: int = Field(gt=0, le=3650)
     device_limit: int = Field(gt=0, le=100)
     is_active: bool = True
+    provider_id: UUID | None = None
 
 
 class UserState(BaseModel):

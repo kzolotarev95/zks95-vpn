@@ -14,7 +14,6 @@ from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.limiter import get_redis, rate_limit
 from app.core.security import (
-    as_utc,
     dummy_password_hash,
     hash_password,
     token_digest,
@@ -31,6 +30,7 @@ from app.schemas.api import (
     UserOut,
 )
 from app.services.orders import place_order
+from app.services.vpn import refresh_access, subscription_view
 
 router = APIRouter(prefix="/api/v1")
 
@@ -175,8 +175,25 @@ def subscriptions(
     )
     result = []
     for row in rows:
-        item = SubscriptionOut.model_validate(row)
-        if item.status == "active" and as_utc(row.expires_at) <= utcnow():
-            item.status = "expired"
+        item = subscription_view(db, row)
         result.append(item)
     return result
+
+
+@router.post("/subscriptions/{subscription_id}/refresh", response_model=SubscriptionOut)
+def refresh_subscription(
+    subscription_id: UUID,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    rate_limit(request, "vpn-refresh", 10, 60)
+    sub = db.scalar(
+        select(Subscription).where(
+            Subscription.id == subscription_id,
+            Subscription.user_id == user.id,
+        )
+    )
+    if not sub:
+        raise HTTPException(404, "Подписка не найдена")
+    return refresh_access(db, sub)

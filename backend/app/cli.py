@@ -1,5 +1,6 @@
 import argparse
 import getpass
+import re
 import sys
 
 import pyotp
@@ -39,10 +40,15 @@ def seed() -> None:
 def create_admin(email: str, role_name: str, reset_mfa: bool = False) -> None:
     if not sys.stdin.isatty() or not sys.stdout.isatty():
         raise SystemExit("Use an interactive terminal: docker compose exec api ... (without -T).")
-    try:
-        email = validate_email(email, check_deliverability=False).normalized.lower()
-    except EmailNotValidError as exc:
-        raise SystemExit(f"Invalid email: {exc}") from None
+    if "@" in email:
+        try:
+            email = validate_email(email, check_deliverability=False).normalized.lower()
+        except EmailNotValidError as exc:
+            raise SystemExit(f"Invalid email: {exc}") from None
+    elif not re.fullmatch(r"[a-zA-Z0-9_.-]{1,64}", email):
+        raise SystemExit(
+            "Login must be an email or 1–64 latin letters, digits, dot, dash or underscore."
+        )
     secret = pyotp.random_base32()
     encrypted = encrypt(secret)
     with SessionLocal.begin() as db:
@@ -59,8 +65,8 @@ def create_admin(email: str, role_name: str, reset_mfa: bool = False) -> None:
                 raise SystemExit("Incorrect account password.")
             if not user.is_active:
                 raise SystemExit("Account is disabled.")
-        elif len(password) < 12 or password != getpass.getpass("Repeat password: "):
-            raise SystemExit("Passwords must match and contain at least 12 characters.")
+        elif not 5 <= len(password) <= 128 or password != getpass.getpass("Repeat password: "):
+            raise SystemExit("Passwords must match and contain 5–128 characters.")
         print("Add a time-based code in your authenticator. Issuer: ZKS95 VPN; account:", email)
         print("Setup key (shown only in this interactive terminal):", secret)
         if not pyotp.TOTP(secret).verify(input("Current six-digit code: ").strip(), valid_window=1):
@@ -94,10 +100,31 @@ def create_admin(email: str, role_name: str, reset_mfa: bool = False) -> None:
     print("Open /admin and sign in with your email, password and a current 2FA code.")
 
 
+def bootstrap_admin() -> bool:
+    """Create the requested initial login once; never reset an existing administrator."""
+    with SessionLocal.begin() as db:
+        if db.scalar(select(AdminUser).limit(1)):
+            print("Existing administrator preserved. Credentials were not reset.")
+            return False
+        if db.scalar(select(User).where(User.email == "admin")):
+            raise SystemExit("Login admin is already occupied; no credentials were changed.")
+        role = db.scalar(select(Role).where(Role.name == "SuperAdmin"))
+        if not role:
+            raise SystemExit("Run seed before admin-bootstrap.")
+        user = User(email="admin", password_hash=hash_password("admin"))
+        db.add(user)
+        db.flush()
+        db.add(AdminUser(user_id=user.id, role_id=role.id, mfa_enabled=False))
+        db.add(AuditLog(actor_id=user.id, action="admin.bootstrap_default", target_id=str(user.id)))
+    print("Initial administrator created. Login: admin; password: admin")
+    return True
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="ZKS95 VPN maintenance")
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("seed")
+    subparsers.add_parser("admin-bootstrap")
     admin_parser = subparsers.add_parser("admin-create")
     admin_parser.add_argument("--email", required=True)
     admin_parser.add_argument("--reset-mfa", action="store_true")
@@ -107,6 +134,8 @@ def main() -> None:
     args = parser.parse_args()
     if args.command == "seed":
         seed()
+    elif args.command == "admin-bootstrap":
+        bootstrap_admin()
     else:
         create_admin(args.email, args.role, args.reset_mfa)
 

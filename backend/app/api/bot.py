@@ -24,8 +24,9 @@ from app.models.entities import (
     TelegramSettings,
     User,
 )
-from app.schemas.api import OrderOut, PlanOut, SubscriptionOut
+from app.schemas.api import OrderOut, PlanOut
 from app.services.orders import place_order
+from app.services.vpn import refresh_access, subscription_view
 
 
 def service_auth(x_bot_service_token: str = Header(default="")) -> None:
@@ -155,9 +156,7 @@ def snapshot(telegram_id: int, db: Session = Depends(get_db)):
         .order_by(Subscription.expires_at.desc())
         .limit(100)
     ):
-        sub = SubscriptionOut.model_validate(row)
-        if sub.status == "active" and as_utc(row.expires_at) <= utcnow():
-            sub.status = "expired"
+        sub = subscription_view(db, row)
         subs.append(sub.model_dump())
     return {
         "user_id": str(user.id),
@@ -179,6 +178,22 @@ def snapshot(telegram_id: int, db: Session = Depends(get_db)):
             )
         ],
     }
+
+
+@router.post("/users/{telegram_id}/refresh")
+def refresh(telegram_id: int, request: Request, db: Session = Depends(get_db)):
+    rate_limit(request, f"vpn-refresh-{telegram_id}", 10, 60)
+    user = telegram_user(telegram_id, db)
+    for sub in db.scalars(
+        select(Subscription)
+        .where(
+            Subscription.user_id == user.id,
+            Subscription.status == "active",
+        )
+        .limit(20)
+    ).all():
+        refresh_access(db, sub)
+    return snapshot(telegram_id, db)
 
 
 @router.post("/orders", response_model=OrderOut, status_code=201)

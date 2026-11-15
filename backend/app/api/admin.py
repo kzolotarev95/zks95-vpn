@@ -24,18 +24,20 @@ from app.models.entities import (
     TelegramSettings,
     User,
     UserSession,
+    VpnProvider,
 )
 from app.schemas.admin import (
     AdminCredentials,
     AdminProfile,
     AdminUserOut,
     AuditOut,
+    PasswordChange,
     PlanWrite,
     TelegramStatus,
     TelegramWrite,
     UserState,
 )
-from app.schemas.api import OrderOut, PlanOut, SubscriptionOut
+from app.schemas.api import OrderOut, PlanOut
 from app.services.admin import (
     ADMIN_COOKIE,
     PERMISSIONS,
@@ -44,6 +46,7 @@ from app.services.admin import (
     permission,
     verify_totp,
 )
+from app.services.vpn import revoke_access, subscription_view
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
@@ -67,7 +70,7 @@ def login(
     body: AdminCredentials, request: Request, response: Response, db: Session = Depends(get_db)
 ) -> AdminProfile:
     rate_limit(request, "admin-login", 10, 300)
-    user = db.scalar(select(User).where(User.email == body.email))
+    user = db.scalar(select(User).where(User.email == body.login.lower()))
     valid = verify_password(
         body.password, (user.password_hash if user else None) or dummy_password_hash
     )
@@ -78,7 +81,7 @@ def login(
     )
     if not valid or not user or not user.is_active or not member:
         raise HTTPException(401, "Неверный email, пароль или код 2FA")
-    if not verify_totp(member, body.otp, db):
+    if member.mfa_enabled and (not body.otp or not verify_totp(member, body.otp, db)):
         raise HTTPException(401, "Неверный email, пароль или код 2FA")
     role = db.get(Role, member.role_id)
     if not role or role.name not in PERMISSIONS:
@@ -123,6 +126,29 @@ def logout(
 @router.get("/me", response_model=AdminProfile)
 def me(admin: AdminContext = Depends(get_admin)) -> AdminProfile:
     return profile(admin)
+
+
+@router.post("/password", status_code=204)
+def password_change(
+    body: PasswordChange,
+    admin: AdminContext = Depends(get_admin),
+    db: Session = Depends(get_db),
+) -> None:
+    if not verify_password(body.current_password, admin.user.password_hash or dummy_password_hash):
+        raise HTTPException(401, "Текущий пароль неверен")
+    if body.current_password == body.new_password:
+        raise HTTPException(422, "Новый пароль должен отличаться")
+    from app.core.security import hash_password
+
+    admin.user.password_hash = hash_password(body.new_password)
+    db.add(
+        AuditLog(
+            actor_id=admin.user.id,
+            action="admin.password_change",
+            target_id=str(admin.user.id),
+        )
+    )
+    db.commit()
 
 
 @router.get("/overview")
@@ -228,6 +254,8 @@ def create_plan(
     admin: AdminContext = Depends(permission("plans:write")),
     db: Session = Depends(get_db),
 ):
+    if body.provider_id and not db.get(VpnProvider, body.provider_id):
+        raise HTTPException(422, "VPN-панель не найдена")
     plan = Plan(**body.model_dump(), currency="RUB")
     db.add(plan)
     try:
@@ -247,6 +275,8 @@ def update_plan(
     admin: AdminContext = Depends(permission("plans:write")),
     db: Session = Depends(get_db),
 ):
+    if body.provider_id and not db.get(VpnProvider, body.provider_id):
+        raise HTTPException(422, "VPN-панель не найдена")
     plan = db.get(Plan, plan_id)
     if not plan:
         raise HTTPException(404, "Тариф не найден")
@@ -295,9 +325,7 @@ def subscriptions(
         .offset(offset)
         .limit(limit)
     ):
-        data = SubscriptionOut.model_validate(sub).model_dump()
-        if sub.status == "active" and as_utc(sub.expires_at) <= utcnow():
-            data["status"] = "expired"
+        data = subscription_view(db, sub).model_dump()
         result.append({**data, "user_id": user.id, "email": user.email})
     return result
 
@@ -311,7 +339,7 @@ def revoke(
     sub = db.get(Subscription, subscription_id)
     if not sub:
         raise HTTPException(404, "Подписка не найдена")
-    sub.status = "revoked"
+    revoke_access(db, sub)
     db.add(AuditLog(actor_id=admin.user.id, action="subscription.revoke", target_id=str(sub.id)))
     db.commit()
 

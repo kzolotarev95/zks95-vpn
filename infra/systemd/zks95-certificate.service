@@ -1,0 +1,9 @@
+[Unit]
+Description=Renew the ZKS95 VPN HTTPS certificate
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/zks95-vpn
+ExecStart=/bin/bash /opt/zks95-vpn/scripts/renew-certificate.sh

@@ -25,6 +25,8 @@ PERMISSIONS = {
         "subscriptions:write",
         "audit",
         "telegram",
+        "providers",
+        "providers:write",
     },
     "Admin": {
         "overview",
@@ -36,6 +38,7 @@ PERMISSIONS = {
         "subscriptions",
         "subscriptions:write",
         "audit",
+        "providers",
     },
     "Support": {"overview", "users", "orders", "subscriptions"},
     "Finance": {"overview", "plans", "orders", "subscriptions"},
@@ -67,7 +70,7 @@ def get_admin(request: Request, db: Session = Depends(get_db)) -> AdminContext:
         raise HTTPException(401, "Сессия администратора истекла")
     user = db.get(User, session.user_id)
     member = db.get(AdminUser, session.user_id)
-    if not user or not user.is_active or not member or not member.mfa_enabled:
+    if not user or not user.is_active or not member:
         raise HTTPException(403, "Административный доступ недоступен")
     role = db.get(Role, member.role_id)
     if not role or role.name not in PERMISSIONS:

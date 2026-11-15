@@ -5,6 +5,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from app.api.admin import router as admin_router
 from app.api.bot import account_router
 from app.api.bot import router as bot_router
+from app.api.providers import router as providers_router
 from app.api.routes import router
 from app.core.config import get_settings
 
@@ -39,3 +40,4 @@ app.include_router(router)
 app.include_router(admin_router)
 app.include_router(bot_router)
 app.include_router(account_router)
+app.include_router(providers_router)

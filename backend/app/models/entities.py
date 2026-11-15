@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Boolean,
     CheckConstraint,
@@ -88,6 +89,7 @@ class Plan(Base):
     duration_days: Mapped[int] = mapped_column(Integer)
     device_limit: Mapped[int] = mapped_column(Integer)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    provider_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("vpn_providers.id"))
 
 
 class Order(Base):
@@ -112,6 +114,7 @@ class Order(Base):
     device_limit: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(16), default="pending")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    provider_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("vpn_providers.id"))
 
 
 class Subscription(Base):
@@ -174,3 +177,31 @@ class TelegramLink(Base):
     token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class VpnProvider(Base):
+    __tablename__ = "vpn_providers"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(100))
+    kind: Mapped[str] = mapped_column(String(24))
+    base_url: Mapped[str] = mapped_column(String(1024))
+    credentials_encrypted: Mapped[str] = mapped_column(Text)
+    options: Mapped[dict] = mapped_column(JSON, default=dict)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class VpnAccess(Base):
+    __tablename__ = "vpn_access"
+
+    subscription_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("subscriptions.id"), primary_key=True
+    )
+    provider_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("vpn_providers.id"))
+    remote_username: Mapped[str] = mapped_column(String(64), unique=True)
+    identity_encrypted: Mapped[str] = mapped_column(Text)
+    connection_encrypted: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), default="pending")
+    used_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
+    synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

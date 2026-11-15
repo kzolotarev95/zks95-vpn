@@ -3,7 +3,7 @@ import time
 import pyotp
 import pytest
 from app.core.encryption import encrypt
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password
 from app.models.entities import AdminUser, AuditLog, Role, TelegramSettings, User
 from sqlalchemy import select
 
@@ -154,3 +154,25 @@ def test_admin_session_expiry(client, db, admin_factory):
     session.expires_at = utcnow() - timedelta(seconds=1)
     db.commit()
     assert client.get("/api/v1/admin/overview").status_code == 401
+
+
+def test_default_admin_can_login_without_otp_and_change_password(client, db):
+    role = Role(name="SuperAdmin")
+    db.add(role)
+    db.flush()
+    user = User(email="admin", password_hash=hash_password("admin"))
+    db.add(user)
+    db.flush()
+    db.add(AdminUser(user_id=user.id, role_id=role.id, mfa_enabled=False))
+    db.commit()
+    response = client.post("/api/v1/admin/login", json={"login": "admin", "password": "admin"})
+    assert response.status_code == 200
+    assert (
+        client.post(
+            "/api/v1/admin/password",
+            json={"current_password": "admin", "new_password": "admin2"},
+        ).status_code
+        == 204
+    )
+    db.refresh(user)
+    assert verify_password("admin2", user.password_hash)

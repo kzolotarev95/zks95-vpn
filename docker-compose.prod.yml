@@ -12,3 +12,4 @@ services:
     volumes:
       - ./infra/nginx/production.conf.template:/etc/nginx/templates/default.conf.template:ro
       - ${TLS_DIRECTORY:-/etc/letsencrypt}:/etc/letsencrypt:ro
+      - ./secrets/acme:/var/www/acme:ro

@@ -9,7 +9,7 @@ from app.core.security import as_utc
 class Credentials(BaseModel):
     model_config = ConfigDict(extra="forbid")
     email: EmailStr = Field(max_length=254)
-    password: str = Field(min_length=12, max_length=128)
+    password: str = Field(min_length=5, max_length=128)
 
     @field_validator("email")
     @classmethod
@@ -41,6 +41,7 @@ class PlanOut(ORMModel):
     currency: str
     duration_days: int
     device_limit: int
+    provider_id: UUID | None = None
 
 
 class CreateOrder(BaseModel):
@@ -67,3 +68,7 @@ class SubscriptionOut(ORMModel):
     status: str
     starts_at: datetime
     expires_at: datetime
+    connection_url: str | None = None
+    provider_name: str | None = None
+    vpn_status: str | None = None
+    used_bytes: int | None = None
