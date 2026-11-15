@@ -1,0 +1,61 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: zks95_test
+          POSTGRES_USER: zks95
+          POSTGRES_PASSWORD: ci-only-password
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U zks95 -d zks95_test" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://zks95:ci-only-password@localhost:5432/zks95_test
+      TEST_DATABASE_URL: postgresql+psycopg://zks95:ci-only-password@localhost:5432/zks95_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13", cache: pip }
+      - run: pip install -c requirements.lock -e '.[dev]'
+      - run: ruff check backend migrations scripts/validate-env.py
+      - run: ruff format --check backend migrations scripts/validate-env.py
+      - run: pytest -q
+      - run: alembic upgrade head && alembic check
+      - run: python -m app.cli seed && python -m app.cli seed
+      - run: alembic downgrade base && alembic upgrade head && alembic check
+      - name: Shell syntax
+        run: for script in scripts/*.sh infra/backup/*.sh; do bash -n "$script"; done
+      - name: ShellCheck
+        uses: ludeeus/action-shellcheck@2.0.0
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run: { working-directory: apps/web }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "24", cache: npm, cache-dependency-path: apps/web/package-lock.json }
+      - run: npm ci --no-fund
+      - run: npm audit --audit-level=moderate
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run typecheck
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Scan Git history with Gitleaks
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.24.3 detect --source=/repo --redact --no-banner

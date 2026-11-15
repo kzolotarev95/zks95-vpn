@@ -1,0 +1,35 @@
+name: Docker
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+
+jobs:
+  compose-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure isolated development deployment
+        run: |
+          cp .env.example .env
+          password="$(openssl rand -hex 32)"
+          sed -i "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$password/" .env
+          python3 scripts/validate-env.py
+          docker compose config --quiet
+          DOMAIN=vpn.test docker compose -f docker-compose.yml -f docker-compose.prod.yml config --quiet
+      - run: docker compose build
+      - run: docker compose up -d --wait postgres redis
+      - run: docker compose run --rm --no-deps api alembic upgrade head
+      - run: docker compose run --rm --no-deps api python -m app.cli seed
+      - run: docker compose up -d --wait --wait-timeout 180
+      - run: bash scripts/health-check.sh
+      - name: Verify real database-backed catalog and frontend
+        run: |
+          curl --fail --silent http://localhost:8080/api/v1/plans | python3 -c 'import json,sys; assert len(json.load(sys.stdin)) == 3'
+          curl --fail --silent http://localhost:8080/ | grep -q 'ZKS95'
+      - if: failure()
+        run: docker compose logs --tail=100
+      - if: always()
+        run: docker compose down -v

@@ -1,0 +1,93 @@
+name: zks95-vpn
+
+x-service: &service
+  restart: unless-stopped
+  security_opt: ["no-new-privileges:true"]
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  postgres:
+    <<: *service
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: zks95
+      POSTGRES_USER: zks95
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zks95 -d zks95"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    <<: *service
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction"]
+    volumes: ["redis_data:/data"]
+    networks: [backend]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    <<: *service
+    image: zks95-api:${APP_VERSION:-local}
+    build: { context: ., dockerfile: infra/docker/api.Dockerfile }
+    environment:
+      DATABASE_URL: postgresql+psycopg://zks95:${POSTGRES_PASSWORD}@postgres:5432/zks95
+      REDIS_URL: redis://redis:6379/0
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      TRUSTED_HOSTS: ${TRUSTED_HOSTS:-["localhost","127.0.0.1","api"]}
+      ENABLE_DOCS: ${ENABLE_DOCS:-true}
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    networks: [backend, frontend]
+    read_only: true
+    tmpfs: ["/tmp:size=32m,mode=1777"]
+    cap_drop: [ALL]
+
+  web:
+    <<: *service
+    image: zks95-web:${APP_VERSION:-local}
+    build: { context: ., dockerfile: infra/docker/web.Dockerfile }
+    environment: { API_INTERNAL_URL: "http://api:8000" }
+    depends_on:
+      api: { condition: service_healthy }
+    networks: [frontend]
+    cap_drop: [ALL]
+
+  nginx:
+    <<: *service
+    image: nginxinc/nginx-unprivileged:1.28-alpine
+    ports: ["${BIND_ADDRESS:-127.0.0.1}:${HTTP_PORT:-8080}:8080"]
+    volumes: ["./infra/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro"]
+    depends_on:
+      web: { condition: service_healthy }
+      api: { condition: service_healthy }
+    networks:
+      frontend: { ipv4_address: 172.30.95.10 }
+    cap_drop: [ALL]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  backend: { internal: true }
+  frontend:
+    ipam:
+      config: [{ subnet: 172.30.95.0/24 }]

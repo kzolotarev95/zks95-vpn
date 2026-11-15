@@ -1,0 +1,14 @@
+services:
+  api:
+    environment:
+      ENVIRONMENT: production
+      COOKIE_SECURE: "true"
+      ENABLE_DOCS: "false"
+  nginx:
+    environment: { DOMAIN: "${DOMAIN:?Set DOMAIN for HTTPS}" }
+    ports: !override
+      - "80:8080"
+      - "443:8443"
+    volumes:
+      - ./infra/nginx/production.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ${TLS_DIRECTORY:-/etc/letsencrypt}:/etc/letsencrypt:ro
