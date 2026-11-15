@@ -54,6 +54,27 @@ class BotOrder(BaseModel):
     idempotency_key: str = Field(min_length=16, max_length=64, pattern=r"^[\w-]+$")
 
 
+class TelegramUserRef(BaseModel):
+    telegram_id: int = Field(gt=0, le=2**53 - 1)
+
+
+class StarsPrecheckout(BaseModel):
+    telegram_id: int = Field(gt=0, le=2**53 - 1)
+    order_id: UUID
+    payload: str = Field(min_length=1, max_length=128)
+    amount: int = Field(gt=0, le=2**53 - 1)
+    currency: str = Field(min_length=1, max_length=4)
+
+
+class StarsConfirmation(BaseModel):
+    telegram_id: int = Field(gt=0, le=2**53 - 1)
+    order_id: UUID
+    telegram_payment_id: str = Field(min_length=1, max_length=128)
+    amount: int = Field(gt=0, le=2**53 - 1)
+    currency: str = Field(min_length=1, max_length=4)
+    payload: dict = Field(default_factory=dict)
+
+
 class Heartbeat(BaseModel):
     revision: int
     running: bool
@@ -82,6 +103,8 @@ def config(db: Session = Depends(get_db)):
         if row and row.enabled and row.token_encrypted
         else None,
         "public_url": get_settings().public_url,
+        "miniapp_url": get_settings().miniapp_url
+        or f"{get_settings().public_url.rstrip('/')}/miniapp/",
         "support_username": row.support_username if row else None,
     }
 
@@ -200,6 +223,54 @@ def refresh(telegram_id: int, request: Request, db: Session = Depends(get_db)):
 def order(body: BotOrder, request: Request, db: Session = Depends(get_db)):
     rate_limit(request, f"bot-orders-{body.telegram_id}", 10, 60)
     return place_order(db, telegram_user(body.telegram_id, db), body.plan_id, body.idempotency_key)
+
+
+@router.post("/orders/{order_id}/stars-invoice")
+def stars_invoice(order_id: UUID, body: TelegramUserRef, db: Session = Depends(get_db)):
+    user = telegram_user(body.telegram_id, db)
+    order = db.scalar(select(Order).where(Order.id == order_id, Order.user_id == user.id))
+    if not order:
+        raise HTTPException(404, "Заказ не найден")
+    return {
+        "order_id": str(order.id),
+        "title": order.plan_name[:32],
+        "description": f"ZKS95 VPN · {order.duration_days} дней",
+        "stars_price": order.stars_price,
+        "payload": f"zks95:{order.id}",
+    }
+
+
+@router.post("/stars/precheckout")
+def stars_precheckout(body: StarsPrecheckout, db: Session = Depends(get_db)) -> dict[str, object]:
+    user = telegram_user(body.telegram_id, db)
+    order = db.scalar(select(Order).where(Order.id == body.order_id, Order.user_id == user.id))
+    if not order or body.payload != f"zks95:{body.order_id}":
+        return {"ok": False, "error": "Заказ не найден"}
+    if body.currency != "XTR" or order.stars_price != body.amount:
+        return {"ok": False, "error": "Сумма тарифа изменилась"}
+    return {"ok": order.status == "pending", "error": "Заказ уже обработан"}
+
+
+@router.post("/stars/confirm")
+def stars_confirm(body: StarsConfirmation, db: Session = Depends(get_db)):
+    from app.services.billing import BillingError, confirm_stars_payment
+
+    user = telegram_user(body.telegram_id, db)
+    order = db.scalar(select(Order).where(Order.id == body.order_id, Order.user_id == user.id))
+    if not order or body.payload.get("invoice_payload") != f"zks95:{body.order_id}":
+        raise HTTPException(404, "Заказ не найден")
+    try:
+        payment = confirm_stars_payment(
+            db,
+            order,
+            body.telegram_payment_id,
+            body.amount,
+            body.currency,
+            body.payload,
+        )
+    except BillingError as exc:
+        raise HTTPException(409, str(exc)) from None
+    return {"payment_id": str(payment.id), "status": payment.status}
 
 
 @account_router.get("/telegram")

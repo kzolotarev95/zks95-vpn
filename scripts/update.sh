@@ -35,7 +35,7 @@ require_env
 "${COMPOSE[@]}" config --quiet
 "${COMPOSE[@]}" build --pull
 # Stop request handlers before schema changes; postgres and redis remain running.
-"${COMPOSE[@]}" stop nginx web api
+"${COMPOSE[@]}" stop nginx web miniapp api
 "${COMPOSE[@]}" stop bot
 "${COMPOSE[@]}" run --rm --no-deps api alembic upgrade head
 "${COMPOSE[@]}" run --rm --no-deps api python -m app.cli admin-bootstrap

@@ -1,0 +1,7 @@
+import type { Metadata } from "next";
+import "./globals.css";
+
+export const metadata: Metadata = { title: "ZKS95 VPN", description: "VPN Mini App" };
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  return <html lang="ru"><body>{children}</body></html>;
+}

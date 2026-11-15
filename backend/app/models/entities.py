@@ -90,6 +90,7 @@ class Plan(Base):
     device_limit: Mapped[int] = mapped_column(Integer)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     provider_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("vpn_providers.id"))
+    stars_price: Mapped[int | None] = mapped_column(Integer)
 
 
 class Order(Base):
@@ -115,6 +116,7 @@ class Order(Base):
     status: Mapped[str] = mapped_column(String(16), default="pending")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     provider_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("vpn_providers.id"))
+    stars_price: Mapped[int | None] = mapped_column(Integer)
 
 
 class Subscription(Base):
@@ -169,6 +171,52 @@ class TelegramSettings(Base):
     revision: Mapped[int] = mapped_column(Integer, default=0)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_error: Mapped[str | None] = mapped_column(String(64))
+
+
+class BillingSettings(Base):
+    __tablename__ = "billing_settings"
+    __table_args__ = (CheckConstraint("id = 1", name="singleton"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    yookassa_shop_id: Mapped[str | None] = mapped_column(String(64))
+    yookassa_secret_encrypted: Mapped[str | None] = mapped_column(Text)
+    yookassa_receipt_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+    __table_args__ = (
+        UniqueConstraint("provider", "external_id"),
+        CheckConstraint(
+            "status IN ('pending', 'succeeded', 'canceled', 'refunded')", name="status"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    order_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("orders.id"), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    provider: Mapped[str] = mapped_column(String(32))
+    external_id: Mapped[str] = mapped_column(String(128))
+    status: Mapped[str] = mapped_column(String(16), default="pending")
+    amount_minor: Mapped[int] = mapped_column(Integer)
+    currency: Mapped[str] = mapped_column(String(3))
+    confirmation_url: Mapped[str | None] = mapped_column(String(2048))
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class PaymentEvent(Base):
+    __tablename__ = "payment_events"
+    __table_args__ = (UniqueConstraint("provider", "event_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    provider: Mapped[str] = mapped_column(String(32))
+    event_id: Mapped[str] = mapped_column(String(128))
+    payment_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("payments.id"))
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class TelegramLink(Base):

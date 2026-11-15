@@ -1,11 +1,15 @@
 export type Plan = {
   id: string; code: string; name: string; description: string;
-  price_minor: number; currency: string; duration_days: number; device_limit: number;
+  price_minor: number; currency: string; duration_days: number; device_limit: number; stars_price?: number | null;
 };
 export type User = { id: string; email: string; created_at: string };
 export type Order = {
   id: string; plan_name: string; amount_minor: number; currency: string;
-  status: "pending" | "paid" | "cancelled" | "refunded"; created_at: string;
+  status: "pending" | "paid" | "cancelled" | "refunded"; created_at: string; stars_price?: number | null;
+};
+export type Payment = {
+  id: string; order_id: string; provider: string; status: "pending" | "succeeded" | "canceled" | "refunded";
+  amount_minor: number; currency: string; confirmation_url?: string | null; created_at: string; paid_at?: string | null;
 };
 export type Subscription = {
   id: string; plan_name: string; status: string; device_limit: number; expires_at: string;

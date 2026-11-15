@@ -1,0 +1,8 @@
+{
+  "name": "@zks95/miniapp",
+  "version": "0.1.0-dev",
+  "private": true,
+  "scripts": {"dev": "next dev --hostname 0.0.0.0", "build": "next build", "start": "node .next/standalone/server.js", "typecheck": "tsc --noEmit", "lint": "eslint . --max-warnings=0"},
+  "dependencies": {"framer-motion": "^12.0.0", "lucide-react": "^0.577.0", "next": "16.4.6", "react": "19.3.1", "react-dom": "19.3.1"},
+  "devDependencies": {"@types/node": "^24.0.0", "@types/react": "^19.0.0", "@types/react-dom": "^19.0.0", "eslint": "^10.0.0", "eslint-config-next": "16.4.6", "typescript": "^5.9.0"}
+}

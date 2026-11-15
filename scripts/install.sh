@@ -80,5 +80,5 @@ bash scripts/health-check.sh
 if [[ -d .git ]]; then "${GIT[@]}" rev-parse HEAD > .deployed-commit; fi
 echo "Installed the current development milestone. Site and account: $(sed -n 's/^PUBLIC_URL=//p' .env)"
 echo "Admin: /admin. First installation: admin / admin. Existing administrators are preserved."
-echo "Configure Telegram and VPN panels in /admin. Automatic billing is not enabled yet."
+echo "Configure Telegram, payment providers and VPN panels in /admin."
 echo "For HTTPS setup see docs/DEPLOYMENT.md."

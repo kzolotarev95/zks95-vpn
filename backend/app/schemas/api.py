@@ -42,6 +42,7 @@ class PlanOut(ORMModel):
     duration_days: int
     device_limit: int
     provider_id: UUID | None = None
+    stars_price: int | None = None
 
 
 class CreateOrder(BaseModel):
@@ -59,6 +60,19 @@ class OrderOut(ORMModel):
     device_limit: int
     status: str
     created_at: datetime
+    stars_price: int | None = None
+
+
+class PaymentOut(ORMModel):
+    id: UUID
+    order_id: UUID
+    provider: str
+    status: str
+    amount_minor: int
+    currency: str
+    confirmation_url: str | None = None
+    created_at: datetime
+    paid_at: datetime | None = None
 
 
 class SubscriptionOut(ORMModel):

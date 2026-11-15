@@ -18,12 +18,15 @@ def seed() -> None:
         for name in ("SuperAdmin", "Admin", "Support", "Finance"):
             if not db.scalar(select(Role).where(Role.name == name)):
                 db.add(Role(name=name))
-        for code, name, days, price, devices in (
-            ("month", "Месяц", 30, 19900, 3),
-            ("quarter", "Три месяца", 90, 49900, 5),
-            ("year", "Год", 365, 169000, 5),
+        for code, name, days, price, devices, stars in (
+            ("month", "Месяц", 30, 19900, 3, 199),
+            ("quarter", "Три месяца", 90, 49900, 5, 499),
+            ("year", "Год", 365, 169000, 5, 1690),
         ):
-            if not db.scalar(select(Plan).where(Plan.code == code)):
+            existing = db.scalar(select(Plan).where(Plan.code == code))
+            if existing and existing.stars_price is None:
+                existing.stars_price = stars
+            if not existing:
                 db.add(
                     Plan(
                         code=code,
@@ -32,6 +35,7 @@ def seed() -> None:
                         duration_days=days,
                         price_minor=price,
                         device_limit=devices,
+                        stars_price=stars,
                     )
                 )
     print("Initial catalog and roles are ready. Existing records were preserved.")

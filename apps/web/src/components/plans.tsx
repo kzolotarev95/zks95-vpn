@@ -29,7 +29,7 @@ export function Plans() {
     <article className={`plan-card ${index === 1 ? "plan-featured" : ""}`} key={plan.id}>
       <div className="plan-top"><span>0{index + 1} / ПОДПИСКА</span>{index === 1 && <span className="tag">БАЛАНС</span>}</div>
       <h3>{plan.name}</h3><p className="plan-description">{plan.description}</p>
-      <div className="price">{money(plan.price_minor, plan.currency)}<span> / {plan.duration_days} дней</span></div>
+      <div className="price">{money(plan.price_minor, plan.currency)}<span> / {plan.duration_days} дней</span></div>{plan.stars_price && <p className="plan-payment">Telegram Stars: {plan.stars_price} XTR · ЮKassa на сайте</p>}
       <ul className="plan-features"><li><Check size={16} /> До {plan.device_limit} устройств</li><li><Check size={16} /> Единый личный кабинет</li><li><Check size={16} /> Срок и цена фиксируются в заказе</li></ul>
       <Button asChild variant={index === 1 ? "default" : "outline"}><Link href={`/dashboard?plan=${encodeURIComponent(plan.id)}`}>Выбрать тариф <ArrowUpRight size={17} /></Link></Button>
     </article>

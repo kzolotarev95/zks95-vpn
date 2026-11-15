@@ -30,6 +30,7 @@ def place_order(db: Session, user: User, plan_id: UUID, idempotency_key: str) ->
         device_limit=plan.device_limit,
         status="pending",
         provider_id=plan.provider_id,
+        stars_price=plan.stars_price,
     )
     db.add(order)
     try:

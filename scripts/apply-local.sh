@@ -19,7 +19,7 @@ cp .env "backups/env-before-local-$(date -u +%Y%m%dT%H%M%SZ).private"
 chmod 600 backups/*.private
 "${COMPOSE[@]}" build --pull
 "${COMPOSE[@]}" up -d --wait postgres redis
-"${COMPOSE[@]}" stop nginx web api bot
+"${COMPOSE[@]}" stop nginx web miniapp api bot
 "${COMPOSE[@]}" run --rm --no-deps api alembic upgrade head
 "${COMPOSE[@]}" run --rm --no-deps api python -m app.cli seed
 "${COMPOSE[@]}" run --rm --no-deps api python -m app.cli admin-bootstrap

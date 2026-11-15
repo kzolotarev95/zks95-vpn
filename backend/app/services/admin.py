@@ -25,6 +25,8 @@ PERMISSIONS = {
         "subscriptions:write",
         "audit",
         "telegram",
+        "billing",
+        "billing:write",
         "providers",
         "providers:write",
     },
@@ -39,9 +41,11 @@ PERMISSIONS = {
         "subscriptions:write",
         "audit",
         "providers",
+        "billing",
+        "billing:write",
     },
     "Support": {"overview", "users", "orders", "subscriptions"},
-    "Finance": {"overview", "plans", "orders", "subscriptions"},
+    "Finance": {"overview", "plans", "orders", "subscriptions", "billing", "billing:write"},
 }
 
 

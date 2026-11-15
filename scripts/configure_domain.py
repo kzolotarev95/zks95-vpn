@@ -29,6 +29,7 @@ def configure(path: Path, domain: str) -> None:
     values = {
         "DOMAIN": domain,
         "PUBLIC_URL": f"https://{domain}",
+        "MINIAPP_URL": f"https://{domain}/miniapp/",
         "ENVIRONMENT": "production",
         "COOKIE_SECURE": "true",
         "ENABLE_DOCS": "false",

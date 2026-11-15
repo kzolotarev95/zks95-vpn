@@ -1,3 +1,6 @@
-# Telegram Mini App — запланирован
+# Telegram Mini App
 
-Next.js и проверка initData на API. Отдельная аутентификация Telegram и Stars потребуют проверок replay и подтверждённых payment updates. Сейчас приложение не разворачивается.
+Mini App разворачивается как отдельный Next.js-сервис по `/miniapp/`. При открытии из Telegram
+он передаёт `initData` на API, где проверяется HMAC с токеном бота и создаётся отдельная Telegram-сессия.
+Тарифы оплачиваются Telegram Stars; подтверждённый `successful_payment` обрабатывает тот же бот,
+после чего общий Billing service меняет заказ на `paid` и запускает выдачу доступа через назначенную панель.

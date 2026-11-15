@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     app_encryption_key: str = ""
     bot_service_token: str = ""
     api_internal_url: str = "http://api:8000"
+    yookassa_shop_id: str = ""
+    yookassa_secret_key: str = ""
+    yookassa_receipt_enabled: bool = False
+    yookassa_vat_code: int = Field(default=1, ge=1, le=6)
+    miniapp_url: str = ""
 
     @model_validator(mode="after")
     def production_settings(self) -> "Settings":

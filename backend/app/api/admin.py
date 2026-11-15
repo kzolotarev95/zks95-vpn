@@ -16,7 +16,9 @@ from app.integrations.telegram import validate_bot_token
 from app.models.entities import (
     AdminUser,
     AuditLog,
+    BillingSettings,
     Order,
+    Payment,
     Plan,
     Role,
     Subscription,
@@ -31,13 +33,15 @@ from app.schemas.admin import (
     AdminProfile,
     AdminUserOut,
     AuditOut,
+    BillingStatus,
+    BillingWrite,
     PasswordChange,
     PlanWrite,
     TelegramStatus,
     TelegramWrite,
     UserState,
 )
-from app.schemas.api import OrderOut, PlanOut
+from app.schemas.api import OrderOut, PaymentOut, PlanOut
 from app.services.admin import (
     ADMIN_COOKIE,
     PERMISSIONS,
@@ -49,6 +53,47 @@ from app.services.admin import (
 from app.services.vpn import revoke_access, subscription_view
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
+
+
+@router.get("/billing", response_model=BillingStatus)
+def billing_status(
+    admin: AdminContext = Depends(permission("billing")), db: Session = Depends(get_db)
+):
+    from app.core.config import get_settings
+
+    row = db.get(BillingSettings, 1)
+    settings = get_settings()
+    telegram = db.get(TelegramSettings, 1)
+    return BillingStatus(
+        yookassa_configured=bool(
+            (row and row.yookassa_shop_id and row.yookassa_secret_encrypted)
+            or (settings.yookassa_shop_id and settings.yookassa_secret_key)
+        ),
+        receipt_enabled=bool(row.yookassa_receipt_enabled)
+        if row
+        else settings.yookassa_receipt_enabled,
+        stars_enabled=bool(telegram and telegram.enabled and telegram.token_encrypted),
+    )
+
+
+@router.put("/billing", response_model=BillingStatus)
+def update_billing(
+    body: BillingWrite,
+    admin: AdminContext = Depends(permission("billing:write")),
+    db: Session = Depends(get_db),
+):
+    row = db.get(BillingSettings, 1)
+    if not row:
+        row = BillingSettings(id=1)
+        db.add(row)
+    row.yookassa_shop_id = body.yookassa_shop_id.strip() or None
+    if body.yookassa_secret_key and body.yookassa_secret_key.get_secret_value():
+        row.yookassa_secret_encrypted = encrypt(body.yookassa_secret_key.get_secret_value())
+    row.yookassa_receipt_enabled = body.yookassa_receipt_enabled
+    row.updated_at = utcnow()
+    db.add(AuditLog(actor_id=admin.user.id, action="billing.configure", target_id="1"))
+    db.commit()
+    return billing_status(admin, db)
 
 
 def profile(admin: AdminContext) -> AdminProfile:
@@ -308,6 +353,72 @@ def orders(
             .limit(limit)
         )
     ]
+
+
+@router.get("/payments", response_model=list[PaymentOut])
+def payments(
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
+    admin: AdminContext = Depends(permission("orders")),
+    db: Session = Depends(get_db),
+):
+    return list(
+        db.scalars(select(Payment).order_by(Payment.created_at.desc()).offset(offset).limit(limit))
+    )
+
+
+@router.post("/payments/{payment_id}/refund", response_model=PaymentOut)
+def refund_payment(
+    payment_id: UUID,
+    admin: AdminContext = Depends(permission("billing:write")),
+    db: Session = Depends(get_db),
+):
+    payment = db.get(Payment, payment_id)
+    if not payment or payment.status != "succeeded":
+        raise HTTPException(409, "Платёж не найден или уже возвращён")
+    if payment.provider == "yookassa":
+        from app.services.billing import BillingError, YookassaClient, billing_config
+
+        shop, secret, _ = billing_config(db)
+        try:
+            YookassaClient(shop, secret).refund(payment)
+        except BillingError as exc:
+            raise HTTPException(502, str(exc)) from None
+    elif payment.provider == "telegram_stars":
+        from app.core.encryption import decrypt
+
+        row = db.get(TelegramSettings, 1)
+        account = db.scalar(
+            select(TelegramAccount).where(TelegramAccount.user_id == payment.user_id)
+        )
+        if not row or not row.token_encrypted or not account:
+            raise HTTPException(409, "Нельзя вернуть Stars без Telegram-аккаунта")
+        import httpx
+
+        try:
+            result = httpx.post(
+                f"https://api.telegram.org/bot{decrypt(row.token_encrypted)}/refundStarPayment",
+                json={
+                    "user_id": account.telegram_id,
+                    "telegram_payment_charge_id": payment.external_id,
+                },
+                timeout=15,
+            ).json()
+        except (httpx.HTTPError, ValueError):
+            raise HTTPException(502, "Telegram временно недоступен") from None
+        if not result.get("ok"):
+            raise HTTPException(502, "Telegram отклонил возврат Stars")
+    payment.status = "refunded"
+    order = db.get(Order, payment.order_id)
+    if order:
+        order.status = "refunded"
+        sub = db.scalar(select(Subscription).where(Subscription.order_id == order.id))
+        if sub and sub.status == "active":
+            revoke_access(db, sub)
+            sub.status = "revoked"
+    db.add(AuditLog(actor_id=admin.user.id, action="payment.refund", target_id=str(payment.id)))
+    db.commit()
+    return payment
 
 
 @router.get("/subscriptions")

@@ -7,6 +7,7 @@ from app.core.security import as_utc, token_digest, utcnow
 from app.models.entities import User, UserSession
 
 COOKIE_NAME = "zks95_session"
+TELEGRAM_COOKIE_NAME = "zks95_telegram"
 
 
 def get_current_session(request: Request, db: Session = Depends(get_db)) -> UserSession:
@@ -26,6 +27,23 @@ def get_current_session(request: Request, db: Session = Depends(get_db)) -> User
 def get_current_user(
     session: UserSession = Depends(get_current_session), db: Session = Depends(get_db)
 ) -> User:
+    user = db.get(User, session.user_id)
+    if user is None or not user.is_active:
+        raise HTTPException(401, "Аккаунт недоступен")
+    return user
+
+
+def get_current_telegram_user(request: Request, db: Session = Depends(get_db)) -> User:
+    token = request.cookies.get(TELEGRAM_COOKIE_NAME)
+    if not token or len(token) > 256:
+        raise HTTPException(401, "Откройте Mini App из Telegram")
+    session = db.scalar(
+        select(UserSession).where(
+            UserSession.token_hash == token_digest(token), UserSession.purpose == "telegram"
+        )
+    )
+    if session is None or as_utc(session.expires_at) <= utcnow():
+        raise HTTPException(401, "Сессия Telegram истекла")
     user = db.get(User, session.user_id)
     if user is None or not user.is_active:
         raise HTTPException(401, "Аккаунт недоступен")

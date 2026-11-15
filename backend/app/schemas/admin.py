@@ -36,6 +36,20 @@ class PlanWrite(BaseModel):
     device_limit: int = Field(gt=0, le=100)
     is_active: bool = True
     provider_id: UUID | None = None
+    stars_price: int | None = Field(default=None, ge=1, le=100_000)
+
+
+class BillingWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    yookassa_shop_id: str = Field(default="", max_length=64)
+    yookassa_secret_key: SecretStr | None = None
+    yookassa_receipt_enabled: bool = False
+
+
+class BillingStatus(BaseModel):
+    yookassa_configured: bool = False
+    receipt_enabled: bool = False
+    stars_enabled: bool = False
 
 
 class UserState(BaseModel):

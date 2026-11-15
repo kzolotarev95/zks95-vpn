@@ -3,8 +3,10 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.admin import router as admin_router
+from app.api.billing import router as billing_router
 from app.api.bot import account_router
 from app.api.bot import router as bot_router
+from app.api.miniapp import router as miniapp_router
 from app.api.providers import router as providers_router
 from app.api.routes import router
 from app.core.config import get_settings
@@ -23,10 +25,17 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
 @app.middleware("http")
 async def security_headers_and_csrf(request: Request, call_next):
     # Every state-changing browser request, including login, requires the exact origin.
-    if request.method in {"POST", "PUT", "PATCH", "DELETE"} and not request.url.path.startswith(
-        "/api/v1/internal/bot/"
-    ):
-        if request.headers.get("origin") != settings.public_url.rstrip("/"):
+    csrf_exempt = request.url.path.startswith("/api/v1/internal/bot/") or request.url.path in {
+        "/api/v1/payments/yookassa/webhook",
+        "/api/v1/miniapp/auth",
+    }
+    origin = request.headers.get("origin")
+    miniapp_origin = request.url.path.startswith("/api/v1/miniapp/") and origin in {
+        "https://web.telegram.org",
+        "https://telegram.org",
+    }
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"} and not csrf_exempt:
+        if origin != settings.public_url.rstrip("/") and not miniapp_origin:
             return JSONResponse({"detail": "Недопустимый источник запроса"}, status_code=403)
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
@@ -41,3 +50,5 @@ app.include_router(admin_router)
 app.include_router(bot_router)
 app.include_router(account_router)
 app.include_router(providers_router)
+app.include_router(billing_router)
+app.include_router(miniapp_router)
