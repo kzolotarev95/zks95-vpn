@@ -26,9 +26,9 @@ SOURCES
   apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 fi
 systemctl enable --now docker
-command -v python3 >/dev/null && command -v openssl >/dev/null && command -v curl >/dev/null || {
+if ! command -v python3 >/dev/null || ! command -v openssl >/dev/null || ! command -v curl >/dev/null; then
   apt-get update; apt-get install -y python3 openssl curl
-}
+fi
 
 if [[ ! -f .env ]]; then
   cp .env.example .env
@@ -46,6 +46,8 @@ chmod 600 .env
 "${COMPOSE[@]}" config --quiet
 
 if [[ "$MODE" == production ]]; then
+  # DOMAIN is expanded by the shell inside the nginx container.
+  # shellcheck disable=SC2016
   "${COMPOSE[@]}" run --rm --no-deps --entrypoint sh nginx -ec \
     'test -r "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" && test -r "/etc/letsencrypt/live/$DOMAIN/privkey.pem"' || {
       echo "nginx uid 101 needs readable certificates. See docs/DEPLOYMENT.md." >&2; exit 1;

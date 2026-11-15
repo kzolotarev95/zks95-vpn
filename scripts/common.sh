@@ -5,6 +5,8 @@ cd "$ROOT"
 MODE="${ZKS95_DEPLOYMENT_MODE:-$(cat .deployment-mode 2>/dev/null || printf development)}"
 if [[ "${1:-}" == "--production" ]]; then MODE=production; fi
 COMPOSE=(docker compose -f docker-compose.yml)
+# Consumed by install.sh and update.sh after sourcing this file.
+# shellcheck disable=SC2034
 GIT=(git -c "safe.directory=$ROOT")
 if [[ "$MODE" == production ]]; then COMPOSE+=(-f docker-compose.prod.yml); fi
 umask 077
