@@ -1,6 +1,6 @@
 # ZKS95 VPN
 
-Коммерческая VPN-платформа, разработка по [техническому заданию](docs/SPECIFICATION.txt).
+Коммерческая VPN-платформа, разработка по [техническому заданию](SPECIFICATION.txt).
 
 Репозиторий: https://github.com/kzolotarev95/zks95-vpn. Основная ветка: `main`.
 
@@ -34,7 +34,7 @@ cd zks95-vpn
 sudo bash scripts/install.sh
 ```
 
-При отсутствии `.env` установщик создаёт его со случайным паролем БД. Development доступен на VPS по http://localhost:8080; для удалённого просмотра используйте SSH-туннель. Для production сначала настройте домен и TLS, заполните `.env`, затем `sudo bash scripts/install.sh --production`. [Подробная инструкция](docs/DEPLOYMENT.md).
+При отсутствии `.env` установщик создаёт его со случайным паролем БД. Development доступен на VPS по http://localhost:8080; для удалённого просмотра используйте SSH-туннель. Для production сначала настройте домен и TLS, заполните `.env`, затем `sudo bash scripts/install.sh --production`. [Подробная инструкция](DEPLOYMENT.md).
 
 ## Локальная разработка без Docker
 
@@ -64,7 +64,7 @@ API — http://127.0.0.1:8000/api/docs; сайт — http://localhost:3000. SQLi
 
 Сейчас обязательны: случайный `POSTGRES_PASSWORD`; для внешнего запуска — `DOMAIN`, `PUBLIC_URL`, `TRUSTED_HOSTS`, TLS-сертификат и `COOKIE_SECURE=true`. Поля Telegram / ЮKassa в `.env.example` зарезервированы для следующих этапов и пока не используются. Не передавайте токены в чат или Git.
 
-- [Архитектура](docs/ARCHITECTURE.md)
-- [Этапы и внешние настройки](docs/ROADMAP.md)
+- [Архитектура](ARCHITECTURE.md)
+- [Этапы и внешние настройки](ROADMAP.md)
 
 Секреты запрещено коммитить. Файлы `.env`, резервные копии и закрытые ключи исключены из Git.
