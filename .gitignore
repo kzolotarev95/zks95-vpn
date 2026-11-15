@@ -19,3 +19,6 @@ docker-data/
 backups/
 secrets/
 *.tsbuildinfo
+*.egg-info/
+.deployment-mode
+.deployed-commit
